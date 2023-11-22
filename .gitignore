@@ -1,2 +1,6 @@
-pre_weight/darknet53.weights
-
+pre_weight
+dump.txt
+data
+output
+ckpts
+__pycache__

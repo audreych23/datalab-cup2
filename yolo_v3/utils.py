@@ -1,4 +1,3 @@
-from absl import logging
 import numpy as np
 import tensorflow as tf
 import cv2
@@ -29,7 +28,7 @@ def load_darknet_weights(model, weights_file, tiny=False):
                     sub_model.layers[i + 1].name.startswith('batch_norm'):
                 batch_norm = sub_model.layers[i + 1]
 
-            logging.info("{}/{} {}".format(
+            print("{}/{} {}".format(
                 sub_model.name, layer.name, 'bn' if batch_norm else 'bias'))
 
             filters = layer.filters
@@ -78,7 +77,7 @@ def load_only_pretrained_darknet_imagenet_weights(model, weights_file, tiny=Fals
                 sub_model.layers[i + 1].name.startswith('batch_norm'):
             batch_norm = sub_model.layers[i + 1]
 
-        logging.info("{}/{} {}".format(
+        print("{}/{} {}".format(
             sub_model.name, layer.name, 'bn' if batch_norm else 'bias'))
 
         filters = layer.filters
@@ -108,7 +107,7 @@ def load_only_pretrained_darknet_imagenet_weights(model, weights_file, tiny=Fals
             layer.set_weights([conv_weights])
             batch_norm.set_weights(bn_weights)
 
-    # TODO: dummy read? since last layer according to darknet53.cfg is 
+    # TODO: dummy read? since last layer according to darknet53.cfg is conv layer
     #conv_shape = (filters, in_dim, size, size)
     #conv_weights = np.fromfile(
             #wf, dtype=np.float32, count=np.product(conv_shape))
@@ -167,3 +166,9 @@ def draw_labels(x, y, class_names):
                           x1y1, cv2.FONT_HERSHEY_COMPLEX_SMALL,
                           1, (0, 0, 255), 2)
     return img
+
+def freeze_all(model, frozen=True):
+    model.trainable = not frozen
+    if isinstance(model, tf.keras.Model):
+        for l in model.layers:
+            freeze_all(l, frozen)

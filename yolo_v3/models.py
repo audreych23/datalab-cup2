@@ -18,11 +18,10 @@ from tensorflow.keras.losses import (
     binary_crossentropy,
     sparse_categorical_crossentropy
 )
-from .utils import broadcast_iou
 
-MAX_BOXES = 100
-IOU_THRESHOLD = 0.5
-SCORE_THRESHOLD = 0.5
+from .utils import broadcast_iou
+import hyperparameter as param
+
 
 yolo_anchors = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45),
                          (59, 119), (116, 90), (156, 198), (373, 326)],
@@ -161,21 +160,21 @@ def yolo_nms(outputs, anchors, masks, classes):
     selected_indices, selected_scores = tf.image.non_max_suppression_with_scores(
         boxes=bbox,
         scores=scores,
-        max_output_size=MAX_BOXES,
-        iou_threshold=IOU_THRESHOLD,
-        score_threshold=SCORE_THRESHOLD,
+        max_output_size=param.MAX_BOXES,
+        iou_threshold=param.IOU_THRESHOLD,
+        score_threshold=param.SCORE_THRESHOLD,
         soft_nms_sigma=0.5
     )
     
     num_valid_nms_boxes = tf.shape(selected_indices)[0]
 
-    selected_indices = tf.concat([selected_indices,tf.zeros(MAX_BOXES-num_valid_nms_boxes, tf.int32)], 0)
-    selected_scores = tf.concat([selected_scores,tf.zeros(MAX_BOXES-num_valid_nms_boxes,tf.float32)], -1)
+    selected_indices = tf.concat([selected_indices,tf.zeros(param.MAX_BOXES-num_valid_nms_boxes, tf.int32)], 0)
+    selected_scores = tf.concat([selected_scores,tf.zeros(param.MAX_BOXES-num_valid_nms_boxes,tf.float32)], -1)
 
     boxes=tf.gather(bbox, selected_indices)
     boxes = tf.expand_dims(boxes, axis=0)
     scores=selected_scores
-    scores = tf.expand_dims(scores, axis=0)
+    scores = tf.expand_dims(scores, axis=0) 
     classes = tf.gather(classes,selected_indices)
     classes = tf.expand_dims(classes, axis=0)
     valid_detections=num_valid_nms_boxes
