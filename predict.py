@@ -5,7 +5,7 @@ import tensorflow as tf
 from yolo_v3.models import (
     YoloV3
 )
-import yolo_v3.dataset as dgen
+import yolo_v3.dataset as dataset
 from yolo_v3.utils import draw_outputs, load_only_pretrained_darknet_imagenet_weights
 import hyperparameter as param
 import data.voc_classes
@@ -14,7 +14,7 @@ checkpoint_name = '/yolo-10'
 
 @tf.function
 def prediction_step(img, model):
-    return model(img, training=False)
+    return model(img)
 
 def main():
     gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -31,12 +31,10 @@ def main():
             # Memory growth must be set before GPUs have been initialized
             print(e)
 
-    yolo_v3 = YoloV3(classes=param.num_classes)
+    yolo_v3 = YoloV3(size=param.IMAGE_SIZE, classes=param.NUM_CLASSES, training=False)
     # load ckpts
     load_only_pretrained_darknet_imagenet_weights(yolo_v3, "./pre_weight/darknet53.weights")
 
-    ckpt = tf.train.Checkpoint(epoch=tf.Variable(0), net=yolo_v3)
-    
     ckpt = tf.train.Checkpoint(epoch=tf.Variable(0), net=yolo_v3)
     ckpt.restore(param.CKPT_DIR + param.CKPT_NAME)
     
@@ -44,7 +42,7 @@ def main():
 
     class_names = data.voc_classes.classes_name
     
-    test_dataset = dgen.DatasetGenerator(train=False).generate()
+    test_dataset = dataset.create_dataset_pipeline(train=False)
 
     output_file = open(param.OUTPUT_PATH + '/test_prediction.txt', 'w')
 
