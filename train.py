@@ -14,6 +14,7 @@ from yolo_v3.models import (
 import yolo_v3.utils  as utils
 import yolo_v3.dataset as dataset
 import hyperparameter as param
+import os
 
 from datetime import datetime
 def split_val_train_dataset():
@@ -78,6 +79,11 @@ def main():
     avg_val_loss = tf.keras.metrics.Mean('val_loss', dtype=tf.float32)
 
     ckpt = tf.train.Checkpoint(epoch=tf.Variable(0), net=model)
+
+    if len(os.listdir(param.CKPT_DIR)) != 0:
+        ckpt.restore(param.CKPT_DIR + param.CKPT_NAME)
+        epoch = ckpt.epoch
+        print('Checkpoint restored')
 
     manager = tf.train.CheckpointManager(ckpt, param.CKPT_DIR, max_to_keep=3,
                                      checkpoint_name='yolo')

@@ -141,9 +141,10 @@ def load_image_dataset(test_path):
 def load_img_data(image_name):
     image_file = tf.io.read_file(param.IMAGE_TEST_PATH+image_name)
     image = tf.image.decode_jpeg(image_file, channels=3)
+    ori_w, ori_h = tf.shape(image)[0], tf.shape(image)[1]
     image = transform_images(image, param.IMAGE_SIZE)
 
-    return image_name, image
+    return image_name, ori_w, ori_h, image
 
 # TODO: does bounding box also get resized???
 def create_dataset_pipeline(train=True):

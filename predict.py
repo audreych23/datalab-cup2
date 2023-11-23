@@ -34,9 +34,9 @@ def main():
 
     yolo_v3 = YoloV3(size=param.IMAGE_SIZE, classes=param.NUM_CLASSES, training=False)
     # load ckpts
-    if os.listdir(param.CKPT_DIR) == 0:
+    if len(os.listdir(param.CKPT_DIR)) != 0:
         ckpt = tf.train.Checkpoint(epoch=tf.Variable(0), net=yolo_v3)
-        ckpt.restore(param.CKPT_DIR + param.CKPT_NAME)
+        ckpt.restore(param.CKPT_DIR + param.CKPT_NAME).expect_partial()
     
         print('Checkpoint restored')
 
@@ -44,12 +44,14 @@ def main():
     
     test_dataset = dataset.create_dataset_pipeline(train=False)
 
-    output_file = open(param.OUTPUT_PATH + '/test_prediction.txt', 'w')
+    output_file = open(param.OUTPUT_PATH+'/test_prediction.txt', 'w')
 
-    for img_labels, imgs in test_dataset:
+    for img_labels, widths, heights, imgs in test_dataset:
         # predict one by one so it can be written to the csv file
         # for i in range(tf.shape(img_labels)[0]):
         for i, img in enumerate(imgs):
+            # original img width 
+            # Transform to param.size and param.size
             img = tf.expand_dims(img, 0)
             # nums is nums of obj detected
             boxes, scores, classes, nums = prediction_step(img, yolo_v3)
@@ -57,32 +59,39 @@ def main():
             print(scores)
             print(classes)
             print(nums)
-        # for i, (box, score, img_class, num) in enumerate(zip(boxes, scores, classes, nums)):
-        #     print(f"======{img_labels[i]}=====")
-        #     print(class_names[img_class])
-        #     print("boxes: ", box)
-        #     print("nums: ", num)
-        #     print("scores", score)
-            
-            # output_file.write(img_name[i:i+1].numpy()[0].decode('ascii')+" %d %d %d %d %d %f\n" %(classes[0], scores))
-            #img filename, xmin, ymin, xmax, ymax, class, confidence
-            # output_file.write(img_name[i:i+1].numpy()[0].decode('ascii')+" %d %d %d %d %d %f\n" %(xmin, ymin, xmax, ymax, class_num, conf))
+
+            # write per object
+            wh = np.flip(img.shape[0:2])
+            if nums[0] != 0:
+                output_file.write(img_labels[i].numpy()[0].decode('ascii'))
+
+            for num in range(nums[0]):
+                # for image size picture
+                print(wh)
+                print(boxes[num][0:2])
+                x1y1 = tuple((np.array(boxes[0][num][0:2]) * wh).astype(np.int32))
+                x2y2 = tuple((np.array(boxes[0][num][2:4]) * wh).astype(np.int32))
+                # img = cv2.rectangle(img, x1y1, x2y2, (255, 0, 0), 2)
+                xmin, ymin = x1y1
+                xmax, ymax = x2y2
+                xmin, ymin, xmax, ymax = xmin*(widths[i]/param.IMAGE_SIZE), ymin*(heights[i]/param.IMAGE_SIZE), \
+                        xmax*(widths[i]/param.IMAGE_SIZE), ymax*(heights[i]/param.IMAGE_SIZE)
+                #img filename, xmin, ymin, xmax, ymax, class, confidence
+                output_file.write(" %d %d %d %d %d %f" %(xmin, ymin, xmax, ymax, classes[0][num], scores[0][num]))
+
+            output_file.write("\n")
 
     output_file.close()
-    print("Done.")
-    # print('detections:')
-    # img_name = 
-    # for i in range(nums[0]):
-    #     print('\t{}, {}, {}'.format(class_names[int(classes[0][i])],
-    #                                        np.array(scores[0][i]),
-    #                                        np.array(boxes[0][i])))
 
-    # img = cv2.cvtColor(img_raw.numpy(), cv2.COLOR_RGB2BGR)
-    # img = draw_outputs(img, (boxes, scores, classes, nums), class_names)
-    # cv2.imwrite(FLAGS.output, img)
-    # logging.info('output saved to: {}'.format(FLAGS.output))
-    img_name = '000001.jpg'
-    visualize(img_name, yolo_v3)
+    evaluate()
+    print("Done.")
+
+    # img_name = '000001.jpg'
+    # visualize(img_name, yolo_v3)
+
+def evaluate():
+    import evaluate.evaluate as evaluate
+    evaluate(os.path.join(param.OUTPUT_PATH, '/test_prediction.txt'), os.path.join(param.OUTPUT_PATH, '/output_file.csv'))
 
 def visualize(img_name, model):
     img_raw = tf.image.decode_image(
