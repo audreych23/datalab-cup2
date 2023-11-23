@@ -74,7 +74,7 @@ def main(_argv):
             print(e)
 
     model, optimizer, loss, anchors, anchor_masks = setup_model()
-    train_dataset = dgen.DatasetGenerator().generate()
+    train_dataset = dgen.DatasetGenerator(train=True).generate()
 
     avg_loss = tf.keras.metrics.Mean('loss', dtype=tf.float32)
     avg_val_loss = tf.keras.metrics.Mean('val_loss', dtype=tf.float32)

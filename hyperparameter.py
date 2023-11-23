@@ -13,6 +13,7 @@ IMAGE_TEST_PATH = './data/VOCdevkit_train/VOC2007/JPEGImages/'
 OUTPUT_PATH = './output/'
 #VAL_DATASET = 
 CKPT_DIR = './ckpts/YOLO'
+CKPT_NAME = '/yolo-10'
 CLASSES_DIR = "./data/voc_classes"
 IMAGE_SIZE = 416
 EPOCHS = 15

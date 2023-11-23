@@ -55,35 +55,51 @@ class DatasetGenerator:
     - builds batches
     """
 
-    def __init__(self):
-        self.image_names = []
-        self.record_list = []
-        self.object_num_list = []
+    def __init__(self, train=True):
+        if train:
+            # When training
+            self.train = train
+            self.image_names = []
+            self.record_list = []
+            self.object_num_list = []
 
-        # filling the record_list
-        input_file = open(param.DATA_PATH, 'r')
-        print(input_file)
+            # filling the record_list
+            input_file = open(param.DATA_PATH, 'r')
+            print(input_file)
 
-        for line in input_file:
-            line = line.strip()
-            ss = line.split(' ')
-            self.image_names.append(ss[0])
-            print(ss[0])
+            for line in input_file:
+                line = line.strip()
+                ss = line.split(' ')
+                self.image_names.append(ss[0])
+                print(ss[0])
 
-            self.record_list.append([float(num) for num in ss[1:]])
-            # len // 5 because there are 5 data
-            self.object_num_list.append(min(len(self.record_list[-1])//5, param.MAX_BOXES))
+                self.record_list.append([float(num) for num in ss[1:]])
+                # len // 5 because there are 5 data
+                self.object_num_list.append(min(len(self.record_list[-1])//5, param.MAX_BOXES))
 
-            # self.object_num_list.append(min(len(self.record_list[-1])//5, MAX_BOXES))
-            if len(self.record_list[-1]) < param.MAX_BOXES*5:
-            #     # if there are objects less than MAX_OBJECTS_PER_IMAGE, pad the list
-                self.record_list[-1] = self.record_list[-1] +\
-                [0., 0., 0., 0., 0.]*\
-                (param.MAX_BOXES - len(self.record_list[-1])//5)
-            # TODO : Do this but I'm pretty sure everythign will be lesser than 100
-            elif len(self.record_list[-1]) > param.MAX_BOXES*5:
-               # if there are objects more than MAX_OBJECTS_PER_IMAGE, crop the list
-                self.record_list[-1] = self.record_list[-1][:param.MAX_BOXES*5]
+                # self.object_num_list.append(min(len(self.record_list[-1])//5, MAX_BOXES))
+                if len(self.record_list[-1]) < param.MAX_BOXES*5:
+                #     # if there are objects less than MAX_OBJECTS_PER_IMAGE, pad the list
+                    self.record_list[-1] = self.record_list[-1] +\
+                    [0., 0., 0., 0., 0.]*\
+                    (param.MAX_BOXES - len(self.record_list[-1])//5)
+                # TODO : Do this but I'm pretty sure everythign will be lesser than 100
+                elif len(self.record_list[-1]) > param.MAX_BOXES*5:
+                # if there are objects more than MAX_OBJECTS_PER_IMAGE, crop the list
+                    self.record_list[-1] = self.record_list[-1][:param.MAX_BOXES*5]
+
+        else:
+            # When testing aka predicting
+            self.image_names = []
+            test_img_files = open(param.TEST_PATH, 'r')
+            print(input_file)
+
+            for line in test_img_files:
+                line = line.strip()
+                ss = line.split(' ')
+                self.image_names.append(ss[0])
+
+    
 
     def _new_data_preprocess(self, image_name, raw_labels, object_num):
         image_file = tf.io.read_file(param.IMAGE_PATH + image_name) 
@@ -146,37 +162,16 @@ class DatasetGenerator:
         return tuple(y_outs)
 
 
-    def _data_preprocess(self, image_name, raw_labels, object_num):
-        image_file = tf.io.read_file(param.IMAGE_DIR+image_name)
+    def _test_data_preprocess(self, image_name):
+        image_file = tf.io.read_file(param.IMAGE_TEST_PATH + image_name) 
         image = tf.io.decode_jpeg(image_file, channels=3)
+        img = tf.expand_dims(image, 0)
+        img = self._transform_images(img, param.IMAGE_SIZE)
+        return image_name, img
+    
 
-        h = tf.shape(image)[0]
-        w = tf.shape(image)[1]
 
-        width_ratio  = param.IMAGE_SIZE * 1.0 / tf.cast(w, tf.float32) 
-        height_ratio = param.IMAGE_SIZE * 1.0 / tf.cast(h, tf.float32) 
-
-        image = tf.image.resize(image, size=[param.IMAGE_SIZE, param.IMAGE_SIZE])
-        image = (image/255) * 2 - 1
-
-        raw_labels = tf.cast(tf.reshape(raw_labels, [-1, 5]), tf.float32)
-
-        xmin = raw_labels[:, 0]
-        ymin = raw_labels[:, 1]
-        xmax = raw_labels[:, 2]
-        ymax = raw_labels[:, 3]
-        class_num = raw_labels[:, 4]
-
-        xcenter = (xmin + xmax) * 1.0 / 2.0 * width_ratio
-        ycenter = (ymin + ymax) * 1.0 / 2.0 * height_ratio
-
-        box_w = (xmax - xmin) * width_ratio
-        box_h = (ymax - ymin) * height_ratio
-
-        labels = tf.stack([xcenter, ycenter, box_w, box_h, class_num], axis=1)
-
-        return image, labels, tf.cast(object_num, tf.int32)
-
+# TODO: does bounding box also get resized???
     def generate(self):
         # dataset = tf.data.Dataset.from_tensor_slices((self.image_names, 
         #                                               np.array(self.record_list), 
@@ -187,18 +182,29 @@ class DatasetGenerator:
         # dataset = dataset.batch(BATCH_SIZE)
         # dataset = dataset.prefetch(buffer_size=200)
 
-        train_dataset = tf.data.Dataset.from_tensor_slices((self.image_names, 
-                                                      np.array(self.record_list), 
-                                                      np.array(self.object_num_list)))
-        train_dataset = train_dataset.shuffle(buffer_size=512)
-        
-        train_dataset = train_dataset.map(self._new_data_preprocess, 
-                              num_parallel_calls = tf.data.experimental.AUTOTUNE)
-        train_dataset = train_dataset.batch(param.BATCH_SIZE)
-        train_dataset = train_dataset.map(lambda x, y: (
-            self._transform_images(x, param.IMAGE_SIZE),
-            self._transform_targets(y, yolo_anchors, yolo_anchor_masks, param.IMAGE_SIZE)))
-        train_dataset = train_dataset.prefetch(
-            buffer_size=tf.data.experimental.AUTOTUNE)
-
-        return train_dataset
+        if self.train == True:
+            train_dataset = tf.data.Dataset.from_tensor_slices((self.image_names, 
+                                                        np.array(self.record_list), 
+                                                        np.array(self.object_num_list)))
+            train_dataset = train_dataset.shuffle(buffer_size=512)
+            
+            train_dataset = train_dataset.map(self._new_data_preprocess, 
+                                num_parallel_calls = tf.data.experimental.AUTOTUNE)
+            train_dataset = train_dataset.batch(param.BATCH_SIZE)
+            train_dataset = train_dataset.map(lambda x, y: (
+                self._transform_images(x, param.IMAGE_SIZE),
+                self._transform_targets(y, yolo_anchors, yolo_anchor_masks, param.IMAGE_SIZE)))
+            train_dataset = train_dataset.prefetch(
+                buffer_size=tf.data.experimental.AUTOTUNE)
+            
+            return train_dataset
+        else:
+            test_dataset = tf.data.Dataset.from_tensor_slices((self.image_names))
+            test_dataset = test_dataset.map(self._test_data_preprocess, 
+                                num_parallel_calls = tf.data.experimental.AUTOTUNE)
+            test_dataset = test_dataset.batch(param.BATCH_SIZE)
+            test_dataset = test_dataset.prefetch(
+                buffer_size=tf.data.experimental.AUTOTUNE)
+            # test_dataset = test_dataset.shuffle(buffer_size=512)
+    
+            return test_dataset
