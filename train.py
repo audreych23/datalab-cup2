@@ -15,8 +15,7 @@ import yolo_v3.utils  as utils
 import yolo_v3.dataset as dataset
 import hyperparameter as param
 
-import datetime
-
+from datetime import datetime
 def split_val_train_dataset():
     pass
 
@@ -87,17 +86,6 @@ def main():
         avg_loss.reset_states()
         ckpt.epoch.assign_add(1)
         for batch, (images, labels) in enumerate(train_dataset):
-            # with tf.GradientTape() as tape:
-            #     outputs = model(images, training=True)
-            #     regularization_loss = tf.reduce_sum(model.losses)
-            #     pred_loss = []
-            #     for output, label, loss_fn in zip(outputs, labels, loss):
-            #         pred_loss.append(loss_fn(label, output))
-            #     total_loss = tf.reduce_sum(pred_loss) + regularization_loss
-
-            # grads = tape.gradient(total_loss, model.trainable_variables)
-            # optimizer.apply_gradients(
-            #     zip(grads, model.trainable_variables))
             total_loss, pred_loss = train_step(images, model, labels, loss, optimizer)
 
             print("{}_train_{}, {}, {}".format(

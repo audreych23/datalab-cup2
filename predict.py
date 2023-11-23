@@ -5,12 +5,13 @@ import tensorflow as tf
 from yolo_v3.models import (
     YoloV3
 )
+import os
 import yolo_v3.dataset as dataset
 from yolo_v3.utils import draw_outputs, load_only_pretrained_darknet_imagenet_weights
 import hyperparameter as param
 import data.voc_classes
 
-checkpoint_name = '/yolo-10'
+checkpoint_name = '/yolo-15'
 
 @tf.function
 def prediction_step(img, model):
@@ -33,12 +34,11 @@ def main():
 
     yolo_v3 = YoloV3(size=param.IMAGE_SIZE, classes=param.NUM_CLASSES, training=False)
     # load ckpts
-    load_only_pretrained_darknet_imagenet_weights(yolo_v3, "./pre_weight/darknet53.weights")
-
-    ckpt = tf.train.Checkpoint(epoch=tf.Variable(0), net=yolo_v3)
-    ckpt.restore(param.CKPT_DIR + param.CKPT_NAME)
+    if os.listdir(param.CKPT_DIR) == 0:
+        ckpt = tf.train.Checkpoint(epoch=tf.Variable(0), net=yolo_v3)
+        ckpt.restore(param.CKPT_DIR + param.CKPT_NAME)
     
-    print('Checkpoint restored')
+        print('Checkpoint restored')
 
     class_names = data.voc_classes.classes_name
     
@@ -46,15 +46,23 @@ def main():
 
     output_file = open(param.OUTPUT_PATH + '/test_prediction.txt', 'w')
 
-    for batch_num, (img_name, img) in test_dataset:
+    for img_labels, imgs in test_dataset:
         # predict one by one so it can be written to the csv file
-        for i in range(batch_num):
-            boxes, scores, classes, nums = prediction_step(img[i], yolo_v3)
-            print(f"======{img_name[i]}=====")
-            print(class_names[classes])
-            print("boxes: ", boxes)
-            print("nums: ", nums)
-            print("scores", scores)
+        # for i in range(tf.shape(img_labels)[0]):
+        for i, img in enumerate(imgs):
+            img = tf.expand_dims(img, 0)
+            # nums is nums of obj detected
+            boxes, scores, classes, nums = prediction_step(img, yolo_v3)
+            print(boxes)
+            print(scores)
+            print(classes)
+            print(nums)
+        # for i, (box, score, img_class, num) in enumerate(zip(boxes, scores, classes, nums)):
+        #     print(f"======{img_labels[i]}=====")
+        #     print(class_names[img_class])
+        #     print("boxes: ", box)
+        #     print("nums: ", num)
+        #     print("scores", score)
             
             # output_file.write(img_name[i:i+1].numpy()[0].decode('ascii')+" %d %d %d %d %d %f\n" %(classes[0], scores))
             #img filename, xmin, ymin, xmax, ymax, class, confidence

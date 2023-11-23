@@ -12,6 +12,7 @@ if __name__ == "__main__":
 
     img = np.random.random((1, 320, 320, 3)).astype(np.float32)
     output = yolo(img)
+    print(output)
     print('pass')
     train_dataset = dataset.create_dataset_pipeline(train=True)
     train_dataset.take(1)
