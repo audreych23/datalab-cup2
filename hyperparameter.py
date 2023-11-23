@@ -9,12 +9,13 @@ DATA_PATH = './data/pascal_voc_training_data.txt'
 IMAGE_PATH = './data/VOCdevkit_train/VOC2007/JPEGImages/'
 TEST_PATH = './data/pascal_voc_testing_data.txt'
 IMAGE_TEST_PATH = './data/VOCdevkit_train/VOC2007/JPEGImages/'
+TFRECORD_DATA_PATH = './data/voc2007_train.tfrecord'
+CLASSES_NAME_PATH = './data/voc2007.names'
 
 OUTPUT_PATH = './output/'
 #VAL_DATASET = 
 CKPT_DIR = './ckpts/YOLO'
 CKPT_NAME = '/yolo-10'
-CLASSES_DIR = "./data/voc_classes"
 IMAGE_SIZE = 416
 EPOCHS = 15
 BATCH_SIZE = 1

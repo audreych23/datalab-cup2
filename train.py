@@ -12,7 +12,7 @@ from yolo_v3.models import (
     yolo_anchors, yolo_anchor_masks
 )
 import yolo_v3.utils  as utils
-import yolo_v3.dataset as dgen
+import yolo_v3.dataset as dataset
 import hyperparameter as param
 
 import datetime
@@ -24,9 +24,8 @@ def setup_model():
     model = YoloV3(param.IMAGE_SIZE, training=True, classes=param.NUM_CLASSES)
     anchors = yolo_anchors
     anchor_masks = yolo_anchor_masks
-        
-    yolo = YoloV3(classes=20)
-    utils.load_only_pretrained_darknet_imagenet_weights(yolo, "./pre_weight/darknet53.weights")
+
+    utils.load_only_pretrained_darknet_imagenet_weights(model, "./pre_weight/darknet53.weights")
     darknet = model.get_layer('yolo_darknet')
     utils.freeze_all(darknet)
 
@@ -74,7 +73,7 @@ def main():
 
     model, optimizer, loss, anchors, anchor_masks = setup_model()
     model.summary()
-    train_dataset = dgen.DatasetGenerator(train=True).generate()
+    train_dataset = dataset.create_dataset_pipeline(train=True)
 
     avg_loss = tf.keras.metrics.Mean('loss', dtype=tf.float32)
     avg_val_loss = tf.keras.metrics.Mean('val_loss', dtype=tf.float32)
