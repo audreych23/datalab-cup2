@@ -6,7 +6,7 @@ from yolo_v3.models import (
     YoloV3
 )
 import yolo_v3.dataset as dgen
-from yolo_v3.utils import draw_outputs
+from yolo_v3.utils import draw_outputs, load_only_pretrained_darknet_imagenet_weights
 import hyperparameter as param
 import data.voc_classes
 
@@ -16,7 +16,7 @@ checkpoint_name = '/yolo-10'
 def prediction_step(img, model):
     return model(img, training=False)
 
-def main(_argv):
+def main():
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if gpus:
         try:
@@ -33,6 +33,8 @@ def main(_argv):
 
     yolo_v3 = YoloV3(classes=param.num_classes)
     # load ckpts
+    load_only_pretrained_darknet_imagenet_weights(yolo_v3, "./pre_weight/darknet53.weights")
+
     ckpt = tf.train.Checkpoint(epoch=tf.Variable(0), net=yolo_v3)
     
     ckpt = tf.train.Checkpoint(epoch=tf.Variable(0), net=yolo_v3)

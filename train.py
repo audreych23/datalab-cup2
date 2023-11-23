@@ -8,9 +8,8 @@ from tensorflow.keras.callbacks import (
     TensorBoard
 )
 from yolo_v3.models import (
-    YoloV3, YoloV3Tiny, YoloLoss,
-    yolo_anchors, yolo_anchor_masks,
-    yolo_tiny_anchors, yolo_tiny_anchor_masks
+    YoloV3, YoloLoss,
+    yolo_anchors, yolo_anchor_masks
 )
 import yolo_v3.utils  as utils
 import yolo_v3.dataset as dgen
@@ -57,7 +56,7 @@ def train_step(images, model, labels, loss, optimizer):
     return total_loss, pred_loss
 
 
-def main(_argv):
+def main():
     # Setup GPU
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if gpus:
@@ -74,6 +73,7 @@ def main(_argv):
             print(e)
 
     model, optimizer, loss, anchors, anchor_masks = setup_model()
+    model.summary()
     train_dataset = dgen.DatasetGenerator(train=True).generate()
 
     avg_loss = tf.keras.metrics.Mean('loss', dtype=tf.float32)

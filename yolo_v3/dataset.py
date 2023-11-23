@@ -5,46 +5,7 @@ from yolo_v3.models import (
     yolo_anchors, yolo_anchor_masks
 )
 
-@tf.function
-def transform_targets_for_output(y_true, grid_size, anchor_idxs):
-    # y_true: (N, boxes, (x1, y1, x2, y2, class, best_anchor))
-    N = tf.shape(y_true)[0]
 
-    # y_true_out: (N, grid, grid, anchors, [x1, y1, x2, y2, obj, class])
-    y_true_out = tf.zeros(
-        (N, grid_size, grid_size, tf.shape(anchor_idxs)[0], 6))
-
-    anchor_idxs = tf.cast(anchor_idxs, tf.int32)
-
-    indexes = tf.TensorArray(tf.int32, 1, dynamic_size=True)
-    updates = tf.TensorArray(tf.float32, 1, dynamic_size=True)
-    idx = 0
-    for i in tf.range(N):
-        for j in tf.range(tf.shape(y_true)[1]):
-            if tf.equal(y_true[i][j][2], 0):
-                continue
-            anchor_eq = tf.equal(
-                anchor_idxs, tf.cast(y_true[i][j][5], tf.int32))
-
-            if tf.reduce_any(anchor_eq):
-                box = y_true[i][j][0:4]
-                box_xy = (y_true[i][j][0:2] + y_true[i][j][2:4]) / 2
-
-                anchor_idx = tf.cast(tf.where(anchor_eq), tf.int32)
-                grid_xy = tf.cast(box_xy // (1/grid_size), tf.int32)
-
-                # grid[y][x][anchor] = (tx, ty, bw, bh, obj, class)
-                indexes = indexes.write(
-                    idx, [i, grid_xy[1], grid_xy[0], anchor_idx[0][0]])
-                updates = updates.write(
-                    idx, [box[0], box[1], box[2], box[3], 1, y_true[i][j][4]])
-                idx += 1
-
-    # tf.print(indexes.stack())
-    # tf.print(updates.stack())
-
-    return tf.tensor_scatter_nd_update(
-        y_true_out, indexes.stack(), updates.stack())
 
 class DatasetGenerator:
     """
@@ -56,22 +17,20 @@ class DatasetGenerator:
     """
 
     def __init__(self, train=True):
+        self.train = train
         if train:
             # When training
-            self.train = train
             self.image_names = []
             self.record_list = []
             self.object_num_list = []
 
             # filling the record_list
             input_file = open(param.DATA_PATH, 'r')
-            print(input_file)
 
             for line in input_file:
                 line = line.strip()
                 ss = line.split(' ')
                 self.image_names.append(ss[0])
-                print(ss[0])
 
                 self.record_list.append([float(num) for num in ss[1:]])
                 # len // 5 because there are 5 data
@@ -92,7 +51,6 @@ class DatasetGenerator:
             # When testing aka predicting
             self.image_names = []
             test_img_files = open(param.TEST_PATH, 'r')
-            print(input_file)
 
             for line in test_img_files:
                 line = line.strip()
@@ -100,7 +58,6 @@ class DatasetGenerator:
                 self.image_names.append(ss[0])
 
     
-
     def _new_data_preprocess(self, image_name, raw_labels, object_num):
         image_file = tf.io.read_file(param.IMAGE_PATH + image_name) 
         image = tf.io.decode_jpeg(image_file, channels=3)
@@ -117,10 +74,13 @@ class DatasetGenerator:
         xmax = raw_labels[:, 2]
         ymax = raw_labels[:, 3]
         labels = raw_labels[:, 4]
+        print(xmin, ymin, xmax, ymax, labels)
         # More than one object can be detected in training data?
         # labels = tf.cast(class_table.lookup(class_text), tf.float32)
 
         y_train = tf.stack([xmin, ymin, xmax, ymax, labels], axis=1)
+        print(y_train)
+
         
         #labels = tf.stack([xcenter, ycenter, box_w, box_h, class_num], axis=1)
 
@@ -129,6 +89,48 @@ class DatasetGenerator:
         # y_train is padded already
         return x_train, y_train
 
+    # @tf.function
+    def transform_targets_for_output(self, y_true, grid_size, anchor_idxs):
+        # y_true: (N, boxes, (x1, y1, x2, y2, class, best_anchor))
+        N = tf.shape(y_true)[0]
+        print(N)
+
+        # y_true_out: (N, grid, grid, anchors, [x1, y1, x2, y2, obj, class])
+        y_true_out = tf.zeros(
+            (N, grid_size, grid_size, tf.shape(anchor_idxs)[0], 6))
+
+        print(y_true_out)
+        anchor_idxs = tf.cast(anchor_idxs, tf.int32)
+
+        indexes = tf.TensorArray(tf.int32, 1, dynamic_size=True)
+        updates = tf.TensorArray(tf.float32, 1, dynamic_size=True)
+        idx = 0
+        for i in tf.range(N):
+            for j in tf.range(tf.shape(y_true)[1]):
+                if tf.equal(y_true[i][j][2], 0):
+                    continue
+                anchor_eq = tf.equal(
+                    anchor_idxs, tf.cast(y_true[i][j][5], tf.int32))
+
+                if tf.reduce_any(anchor_eq):
+                    box = y_true[i][j][0:4]
+                    box_xy = (y_true[i][j][0:2] + y_true[i][j][2:4]) / 2
+
+                    anchor_idx = tf.cast(tf.where(anchor_eq), tf.int32)
+                    grid_xy = tf.cast(box_xy // (1/grid_size), tf.int32)
+
+                    # grid[y][x][anchor] = (tx, ty, bw, bh, obj, class)
+                    indexes = indexes.write(
+                        idx, [i, grid_xy[1], grid_xy[0], anchor_idx[0][0]])
+                    updates = updates.write(
+                        idx, [box[0], box[1], box[2], box[3], 1, y_true[i][j][4]])
+                    idx += 1
+
+        # tf.print(indexes.stack())
+        # tf.print(updates.stack())
+
+        return tf.tensor_scatter_nd_update(
+            y_true_out, indexes.stack(), updates.stack())
 
     def _transform_images(self, x_train, size):
         x_train = tf.image.resize(x_train, (size, size))
@@ -155,7 +157,7 @@ class DatasetGenerator:
         y_train = tf.concat([y_train, anchor_idx], axis=-1)
 
         for anchor_idxs in anchor_masks:
-            y_outs.append(transform_targets_for_output(
+            y_outs.append(self.transform_targets_for_output(
                 y_train, grid_size, anchor_idxs))
             grid_size *= 2
 
@@ -165,8 +167,8 @@ class DatasetGenerator:
     def _test_data_preprocess(self, image_name):
         image_file = tf.io.read_file(param.IMAGE_TEST_PATH + image_name) 
         image = tf.io.decode_jpeg(image_file, channels=3)
-        img = tf.expand_dims(image, 0)
-        img = self._transform_images(img, param.IMAGE_SIZE)
+        # img = tf.expand_dims(image, 0)
+        img = self._transform_images(image, param.IMAGE_SIZE)
         return image_name, img
     
 
